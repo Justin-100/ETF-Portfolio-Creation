@@ -1,0 +1,122 @@
+---
+title: "Time Series Forecasting of Jestin's Portfolio"
+output: html_notebook
+---
+
+This analysis involves examining the historical price movements of the ETFs in my portfolio and using time series analysis to predict their future outlook. Time series analysis allows us to perform a technical analysis of the price trends and movements of these ETFs over time. While some ETFs in my portfolio were created in the late 1990s, for the sake of maintaining historical data accuracy and ensuring consistency across all ETFs, I will use 2014 as the starting date, corresponding to the creation date of the most recently established ETF in my portfolio.
+
+# Load the required libraries
+```{r}
+library(fpp2)
+library(quantmod)
+```
+
+# Define a function to fetch ETF data from Yahoo Finance
+```{r}
+fetch_etf_data_weekly <- function(ticker, start_date = "2014-01-01", end_date = "2024-06-15") {
+  data <- getSymbols(ticker, src = "yahoo", from = start_date, to = end_date, auto.assign = FALSE)
+  weekly_data <- to.weekly(data)
+  Cl(weekly_data)  # Extract the closing prices
+}
+```
+
+# List of ETF tickers
+These are some of the ETFs that I currently hold in my portfolio.
+XLK - TECHNOLOGY SELECT SECTOR SPDR ETF,
+XSD - SPDR S&P SEMICONDUCTOR ETF,
+PHYS - SPROTT PHYSICAL GOLD ETV UNT,
+SCHD - SCHWAB US DIVIDEND EQUITY ETF,
+AGG - ISHARES CORE US AGGREGATE BOND ETF,
+IXUS - ISHARES CORE MSCI TOTL INTL STCK ETF
+```{r}
+etf_tickers <- c("XSD", "XLK", "PHYS", "SCHD", "AGG", "IXUS")  # Add your ETF tickers here
+```
+
+# Fetch weekly data for all ETFs and store in a named list
+```{r}
+etf_data_list <- lapply(etf_tickers, fetch_etf_data_weekly)
+names(etf_data_list) <- etf_tickers
+```
+
+# Example: Perform time series analysis on the weekly closing prices of the first ETF
+```{r}
+etf_name <- names(etf_data_list)[4]
+etf_close_prices <- etf_data_list[[etf_name]]
+```
+
+# Convert to time series object
+```{r}
+etf_ts <- ts(etf_close_prices, frequency = 52)  # Assuming 252 trading days in a year
+```
+
+# Plot the time series data
+```{r}
+autoplot(etf_ts) + ggtitle(paste(etf_name, "Weekly Prices")) + xlab("Week") + ylab("Price")
+```
+
+# Take the difference of the data
+Difference is taken because we see strong trends for all the ETFs
+```{r}
+df1 <- diff(etf_ts)
+```
+
+# Plot the differenced time series data
+```{r}
+autoplot(df1) + ggtitle(paste(etf_name, "Weekly Prices")) + xlab("Week") + ylab("Price")
+```
+# Plot seasonality
+```{r}
+ggseasonplot(df1) + ggtitle(paste(etf_name, "Seasonal Plot: Change in weekly price")) + xlab("Week") + ylab("Price")
+```
+
+# Plot seasonal subseries
+```{r}
+ggsubseriesplot(df1) + ggtitle(paste(etf_name, "Seasonal subseries Plot: Change in weekly price")) + xlab("Week") + ylab("Price")
+```
+
+# Fit Benchmark models (Naive, Seasonal Naive)
+Seasonal Naive fits the data slightly better so we can use Seasonal Naive as our benchmark with a RMSE of 4.34355.
+The residuals tell us that there is still a better model that can fit the data.
+```{r}
+fit1 <- naive(df1)
+print(summary(fit1))
+checkresiduals(fit1)
+
+fit2 <- snaive(df1)
+print(summary(fit2))
+checkresiduals(fit2)
+```
+# Fit an ETS model
+The ETS model has done a good job of fitting the data, the new RMSE value is 3.158396
+However the residual plot tells us that there is still a better model that can fit the data better.
+```{r}
+fit_ets <- ets(etf_ts)
+print(summary(fit_ets))
+checkresiduals(fit_ets)
+```
+
+# Fit an ARIMA model
+```{r}
+fit_arima <- auto.arima(etf_ts, d = 1)
+print(summary(fit_arima))
+checkresiduals(fit_arima)
+```
+
+# Forecast the next 2 years
+```{r}
+forecast_horizon <- 2 * 52  # Forecast for 2 years of trading days
+etf_forecast <- forecast(fit_arima, h = forecast_horizon)
+```
+
+# Plot the forecast
+```{r}
+autoplot(etf_forecast) + ggtitle(paste(etf_name, "Weekly Price Forecast")) + xlab("Week") + ylab("Price")
+```
+
+# Print summary of the fitted model
+```{r}
+summary(fit_arima)
+```
+
+
+
