@@ -1,5 +1,5 @@
 ---
-title: "Time Series Forecasting of Jestin's Portfolio"
+title: "Time Series Forecasting of Justin's Portfolio"
 output: html_notebook
 ---
 
